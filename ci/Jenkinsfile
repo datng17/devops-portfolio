@@ -1,0 +1,151 @@
+pipeline {
+  agent any
+
+  environment {
+    AWS_REGION   = 'us-east-1'
+    AWS_ACCOUNT  = '119640367180'                       
+    REGISTRY     = "${AWS_ACCOUNT}.dkr.ecr.${AWS_REGION}.amazonaws.com"
+    IMAGE        = 'devops-portfolio'
+    TAG          = "${env.GIT_COMMIT?.take(7) ?: env.BUILD_NUMBER}"
+    SONAR_HOST   = 'http://sonarqube:9000'
+    STAGING_HOST = 'staging.example.com'
+    PROD_HOST    = 'app.example.com'
+  }
+
+  options {
+    timestamps()
+    ansiColor('xterm')
+    disableConcurrentBuilds()
+    buildDiscarder(logRotator(numToKeepStr: '20'))
+    timeout(time: 45, unit: 'MINUTES')
+  }
+
+  stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+        sh 'git rev-parse --short HEAD'
+      }
+    }
+
+    stage('Lint & Unit Test') {
+      steps {
+        sh '''
+          set -eu
+          python3 -m venv .venv
+          . .venv/bin/activate
+          pip install --quiet --upgrade pip
+          pip install --quiet -r app/requirements.txt
+          pip install --quiet flake8
+          flake8 app --max-line-length=120 --exclude app/tests --count
+          PYTHONPATH=. pytest --cov=app --cov-report=xml:coverage.xml \
+            --junitxml=pytest-report.xml app/tests
+        '''
+      }
+      post {
+        always {
+          junit testResults: 'pytest-report.xml', allowEmptyResults: true
+        }
+      }
+    }
+
+    stage('SonarQube Scan') {
+      steps {
+        withSonarQubeEnv('sonarqube') {
+          sh '''
+            set -eu
+            sonar-scanner -Dsonar.host.url=${SONAR_HOST}
+          '''
+        }
+      }
+    }
+
+    stage('Quality Gate') {
+      steps {
+        timeout(time: 10, unit: 'MINUTES') {
+          waitForQualityGate abortPipeline: true
+        }
+      }
+    }
+
+    stage('Docker Build & Tag') {
+      steps {
+        sh '''
+          set -eu
+          docker build -f docker/Dockerfile \
+            -t ${REGISTRY}/${IMAGE}:${TAG} \
+            -t ${REGISTRY}/${IMAGE}:latest .
+        '''
+      }
+    }
+
+    stage('Push Image') {
+      steps {
+        sh '''
+          set -eu
+          # Ensure the repo exists (idempotent), then auth to ECR via the Jenkins IAM role.
+          aws ecr describe-repositories --region "${AWS_REGION}" --repository-names "${IMAGE}" >/dev/null 2>&1 \
+            || aws ecr create-repository --region "${AWS_REGION}" --repository-name "${IMAGE}" \
+                 --image-scanning-configuration scanOnPush=true >/dev/null
+          aws ecr get-login-password --region "${AWS_REGION}" \
+            | docker login --username AWS --password-stdin "${REGISTRY}"
+          docker push ${REGISTRY}/${IMAGE}:${TAG}
+          docker push ${REGISTRY}/${IMAGE}:latest
+          docker logout "${REGISTRY}"
+        '''
+      }
+    }
+
+    stage('Deploy Staging') {
+      steps {
+        sshagent(['web-app-ssh']) {
+          sh '''
+            set -eu
+            ssh -o StrictHostKeyChecking=no deploy@${STAGING_HOST} "
+              cd /opt/devops-portfolio &&
+              export TAG=${TAG} REGISTRY=${REGISTRY} AWS_REGION=${AWS_REGION} &&
+              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${REGISTRY} &&
+              docker compose -f docker/docker-compose.yml pull &&
+              docker compose -f docker/docker-compose.yml up -d &&
+              sleep 5 && curl -fsS http://127.0.0.1:8000/health
+            "
+          '''
+        }
+      }
+    }
+
+    stage('Approve Production') {
+      when { branch 'main' }
+      steps {
+        timeout(time: 60, unit: 'MINUTES') {
+          input message: "Deploy ${TAG} to PRODUCTION?", ok: 'Deploy'
+        }
+      }
+    }
+
+    stage('Deploy Production') {
+      when { branch 'main' }
+      steps {
+        sshagent(['web-app-ssh']) {
+          sh '''
+            set -eu
+            ssh -o StrictHostKeyChecking=no deploy@${PROD_HOST} "
+              cd /opt/devops-portfolio &&
+              export TAG=${TAG} REGISTRY=${REGISTRY} AWS_REGION=${AWS_REGION} &&
+              aws ecr get-login-password --region ${AWS_REGION} | docker login --username AWS --password-stdin ${REGISTRY} &&
+              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml pull &&
+              docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d &&
+              sleep 5 && curl -fsS http://127.0.0.1:8000/health
+            "
+          '''
+        }
+      }
+    }
+  }
+
+  post {
+    success { echo "Pipeline OK - image ${REGISTRY}/${IMAGE}:${TAG} deployed" }
+    failure { echo "Pipeline FAILED - check stage logs" }
+    always  { sh 'docker image prune -f || true' }
+  }
+}

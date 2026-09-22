@@ -1,0 +1,18 @@
+# Production override: deploy a pinned, pre-built image (no local build)
+# and enforce resource limits. Combine with:
+#   docker compose -f docker/docker-compose.yml -f docker/docker-compose.prod.yml up -d
+services:
+  app:
+    image: ${REGISTRY}/devops-portfolio:${TAG}
+    pull_policy: always
+    logging:
+      driver: awslogs
+      options:
+        awslogs-region: ${AWS_REGION:-us-east-1}
+        awslogs-group: /devops-portfolio/app
+        awslogs-stream: ${HOSTNAME:-prod}
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M

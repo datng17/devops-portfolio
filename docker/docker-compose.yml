@@ -1,0 +1,82 @@
+# devops-portfolio/docker/docker-compose.yml
+services:
+  app:
+    image: ${REGISTRY:-local}/devops-portfolio:${TAG:-latest}
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    restart: unless-stopped
+    environment:
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_USER: ${DB_USER:-app_user}
+      DB_PASS: ${DB_PASS:-changeme}
+      DB_NAME: ${DB_NAME:-prod_db}
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - backend      # reach the database
+      - frontend     # reachable by nginx
+    expose:
+      - "8000"       # internal only; not published to the host
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx,sys; sys.exit(0 if httpx.get('http://127.0.0.1:8000/health').status_code==200 else 1)"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+
+  nginx:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - letsencrypt:/etc/letsencrypt:ro
+      - nginx_logs:/var/log/nginx
+    networks:
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+
+  mysql:
+    image: mysql:8.0
+    restart: unless-stopped
+    command: --default-authentication-plugin=caching_sha2_password
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-prod_db}
+      MYSQL_USER: ${DB_USER:-app_user}
+      MYSQL_PASSWORD: ${DB_PASS:-changeme}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASS:-rootchangeme}
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ../mysql/init:/docker-entrypoint-initdb.d:ro
+      - ../mysql/my.cnf:/etc/mysql/conf.d/my.cnf:ro
+    networks:
+      - backend      # only the app can reach it; no host port published
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${DB_ROOT_PASS:-rootchangeme}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+networks:
+  frontend:
+    driver: bridge
+  backend:
+    driver: bridge
+    internal: true   # no outbound/host access for the DB tier
+
+volumes:
+  mysql_data:
+  nginx_logs:
+  letsencrypt:

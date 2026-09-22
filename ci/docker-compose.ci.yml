@@ -1,0 +1,51 @@
+# Lightweight CI stack: Jenkins + SonarQube (community).
+# Host prep (Linux): sudo sysctl -w vm.max_map_count=262144
+# Start: docker compose -f ci/docker-compose.ci.yml up -d
+services:
+  jenkins:
+    image: jenkins/jenkins:lts-jdk17
+    container_name: ci-jenkins
+    restart: unless-stopped
+    user: root
+    environment:
+      JAVA_OPTS: "-Djenkins.install.runSetupWizard=true -Xmx1024m"
+    ports:
+      - "8080:8080"
+      - "50000:50000"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Mount host Docker so pipeline stages can build/push images (Docker-outside-of-Docker)
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      - sonarqube
+    networks:
+      - ci_net
+
+  sonarqube:
+    image: sonarqube:10.6-community
+    container_name: ci-sonarqube
+    restart: unless-stopped
+    environment:
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: "true"
+    ports:
+      - "9000:9000"
+    volumes:
+      - sonar_data:/opt/sonarqube/data
+      - sonar_ext:/opt/sonarqube/extensions
+      - sonar_logs:/opt/sonarqube/logs
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+    networks:
+      - ci_net
+
+volumes:
+  jenkins_home:
+  sonar_data:
+  sonar_ext:
+  sonar_logs:
+
+networks:
+  ci_net:
+    driver: bridge

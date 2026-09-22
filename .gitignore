@@ -1,0 +1,138 @@
+# dependencies
+/node_modules
+node_modules/
+/.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# testing
+/coverage
+
+# production / build output
+/build
+/dist
+
+# caches
+.eslintcache
+.cache
+.parcel-cache
+.npm
+
+
+# Python / FastAPI DevOps backend (devops-portfolio/)
+
+
+# byte-compiled / optimized / cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# virtual environments
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# packaging / distribution
+*.egg-info/
+.eggs/
+*.egg
+build/
+develop-eggs/
+
+# test / coverage artifacts
+.pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+.tox/
+.nox/
+.mypy_cache/
+.ruff_cache/
+nosetests.xml
+
+
+# Databases / backups / dumps
+
+*.sql.gz
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.bak
+
+
+# Docker
+
+docker-compose.override.yml
+
+
+# Infrastructure as Code (Terraform / AWS)
+
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+crash.log
+*.tfvars
+*.tfvars.json
+.aws/
+*.pem
+*.key
+
+
+# Environment variables & secrets
+
+.env
+.env.*
+!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+
+# Logs
+
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+
+# Editors / IDEs
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+*.swp
+*.swo
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+
+# OS files
+
+.DS_Store
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+
+# Deployment (gh-pages)
+
+.gh-pages
+
+
+# Local tooling / AI context artifacts
+
+.codesight/
+.agent/

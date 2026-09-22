@@ -1,0 +1,84 @@
+{
+  "agent": {
+    "metrics_collection_interval": 60,
+    "run_as_user": "cwagent",
+    "logfile": "/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log"
+  },
+  "metrics": {
+    "namespace": "DevOpsPortfolio",
+    "aggregation_dimensions": [["InstanceId"]],
+    "append_dimensions": {
+      "InstanceId": "${aws:InstanceId}",
+      "InstanceType": "${aws:InstanceType}",
+      "AutoScalingGroupName": "${aws:AutoScalingGroupName}"
+    },
+    "metrics_collected": {
+      "cpu": {
+        "measurement": [
+          "cpu_usage_idle",
+          "cpu_usage_user",
+          "cpu_usage_system",
+          "cpu_usage_iowait"
+        ],
+        "totalcpu": true,
+        "metrics_collection_interval": 60
+      },
+      "mem": {
+        "measurement": ["mem_used_percent", "mem_available_percent"],
+        "metrics_collection_interval": 60
+      },
+      "disk": {
+        "measurement": ["used_percent", "inodes_free"],
+        "resources": ["/", "/var"],
+        "ignore_file_system_types": ["sysfs", "devtmpfs", "tmpfs", "overlay"],
+        "metrics_collection_interval": 60
+      },
+      "diskio": {
+        "measurement": ["io_time", "reads", "writes"],
+        "resources": ["*"],
+        "metrics_collection_interval": 60
+      },
+      "net": {
+        "measurement": ["bytes_sent", "bytes_recv"],
+        "resources": ["*"]
+      },
+      "swap": {
+        "measurement": ["swap_used_percent"]
+      }
+    }
+  },
+  "logs": {
+    "logs_collected": {
+      "files": {
+        "collect_list": [
+          {
+            "file_path": "/var/log/nginx/access.log",
+            "log_group_name": "/devops-portfolio/nginx/access",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 30
+          },
+          {
+            "file_path": "/var/log/nginx/error.log",
+            "log_group_name": "/devops-portfolio/nginx/error",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 30
+          },
+          {
+            "file_path": "/var/log/app/app.log",
+            "log_group_name": "/devops-portfolio/app/fastapi",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 30
+          },
+          {
+            "file_path": "/var/log/mysql/slow.log",
+            "log_group_name": "/devops-portfolio/mysql/slow",
+            "log_stream_name": "{instance_id}",
+            "retention_in_days": 14
+          }
+        ]
+      }
+    },
+    "log_stream_name": "{instance_id}",
+    "force_flush_interval": 15
+  }
+}
