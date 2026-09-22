@@ -1,0 +1,36 @@
+# Normalize line endings across platforms.
+# Default: let Git auto-detect text and normalize to LF in the repo.
+* text=auto eol=lf
+
+# ---- Scripts that MUST stay LF (run on Linux/EC2) ----
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.py    text eol=lf
+Dockerfile   text eol=lf
+*.conf  text eol=lf
+*.cnf   text eol=lf
+*.properties text eol=lf
+
+# ---- Config / docs (LF) ----
+*.yml   text eol=lf
+*.yaml  text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.sql   text eol=lf
+*.env   text eol=lf
+Jenkinsfile  text eol=lf
+.gitignore   text eol=lf
+.dockerignore text eol=lf
+
+# ---- Binary files (never normalize or diff as text) ----
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.webp  binary
+*.ico   binary
+*.pdf   binary
+*.gz    binary
+*.zip   binary
+*.woff  binary
+*.woff2 binary
