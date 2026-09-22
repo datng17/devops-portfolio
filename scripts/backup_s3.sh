@@ -22,7 +22,7 @@ BACKUP_DIR="${BACKUP_DIR:-/var/backups/mysql}"
 S3_BUCKET="${S3_BUCKET:-s3://my-devops-backups/mysql}"
 RETAIN_DAYS="${RETAIN_DAYS:-7}"
 LOG_FILE="${LOG_FILE:-/var/log/mysql/backup_s3.log}"
-ALERT_SNS_TOPIC="${ALERT_SNS_TOPIC:-}"
+ALERT_SNS_TOPIC="arn:aws:sns:us-east-1:119640367180:mysql-backup-alerts"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 STAMP="$(date +%F_%H%M%S)"

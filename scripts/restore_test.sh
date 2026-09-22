@@ -28,7 +28,7 @@ DB_PASS="${MYSQL_ROOT_PASS:?set MYSQL_ROOT_PASS}"
 S3_BUCKET="${S3_BUCKET:-s3://my-devops-backups/mysql}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/mysql}"
 LOG_FILE="${LOG_FILE:-/var/log/mysql/restore_test.log}"
-ALERT_SNS_TOPIC="${ALERT_SNS_TOPIC:-}"
+ALERT_SNS_TOPIC="arn:aws:sns:us-east-1:119640367180:mysql-backup-alerts"
 AWS_REGION="${AWS_REGION:-us-east-1}"
 
 mkdir -p "$(dirname "$LOG_FILE")"
