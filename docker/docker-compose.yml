@@ -65,7 +65,7 @@ services:
       - nginx
     environment:
       TLS_DOMAIN: ${TLS_DOMAIN:-test.name.vn}
-      TLS_EMAIL: ${TLS_EMAIL:-admin@example.com}
+      TLS_EMAIL: ${TLS_EMAIL:-datng416@gmail.com}
       TLS_STAGING: ${TLS_STAGING:-0}
     entrypoint: ["/bin/sh", "/certbot-entrypoint.sh"]
     volumes:

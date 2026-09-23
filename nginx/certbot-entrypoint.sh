@@ -12,7 +12,7 @@
 set -eu
 
 DOMAIN="${TLS_DOMAIN:-test.name.vn}"
-EMAIL="${TLS_EMAIL:-admin@example.com}"
+EMAIL="${TLS_EMAIL:-datng416@gmail.com}"
 WEBROOT="/var/www/certbot"
 LIVE="/etc/letsencrypt/live/${DOMAIN}"
 
