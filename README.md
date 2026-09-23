@@ -154,7 +154,7 @@ sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
 
 # 2) Alarms (CPU > 80%, Disk > 85%)
 INSTANCE_ID=i-0abc123 \
-SNS_TOPIC_ARN=arn:aws:sns:us-east-1:119640367180:ops-alerts \
+SNS_TOPIC_ARN=arn:aws:sns:us-east-1:1234567890:ops-alerts \
 AWS_REGION=us-east-1 bash scripts/aws_alarms.sh
 ```
 
@@ -171,5 +171,4 @@ VPC/subnets/SGs → EC2 hosts → `harden.sh` → MySQL → Jenkins/SonarQube �
 Nginx + TLS → CloudWatch agent/alarms → push to trigger the pipeline → enable
 backup/health cron + logrotate.
 
-See `docs/runbook.md`, `docs/capacity-planning.md`, and
-[`docs/interview-qa.md`](docs/interview-qa.md) for operational and interview prep material.
+See `docs/runbook.md`, `docs/capacity-planning.md` for operational
