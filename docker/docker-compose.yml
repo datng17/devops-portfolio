@@ -1,5 +1,20 @@
 # devops-portfolio/docker/docker-compose.yml
 services:
+  # One-shot init service: auto-generates a self-signed TLS cert into the
+  # shared `letsencrypt` volume before nginx starts, so nginx serves HTTPS
+  # out of the box. Idempotent — skips if a cert already exists.
+  certgen:
+    image: alpine:3.20
+    # Install openssl at runtime, then run the idempotent generator script.
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache openssl >/dev/null && exec /bin/sh /certgen.sh"]
+    environment:
+      TLS_DOMAIN: ${TLS_DOMAIN:-app.example.com}
+      TLS_DAYS: ${TLS_DAYS:-365}
+    volumes:
+      - ../nginx/certgen.sh:/certgen.sh:ro
+      - letsencrypt:/etc/letsencrypt
+    restart: "no"
+
   app:
     image: ${REGISTRY:-local}/devops-portfolio:${TAG:-latest}
     build:
@@ -31,7 +46,10 @@ services:
     image: nginx:1.27-alpine
     restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_started
+      certgen:
+        condition: service_completed_successfully
     ports:
       - "80:80"
       - "443:443"

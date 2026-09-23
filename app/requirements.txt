@@ -2,6 +2,7 @@
 fastapi==0.115.0
 uvicorn[standard]==0.30.6
 pymysql==1.1.1
+cryptography==43.0.1   # required by PyMySQL for MySQL 8 caching_sha2_password auth
 sqlalchemy==2.0.35
 pydantic==2.9.2
 httpx==0.27.2
