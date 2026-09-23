@@ -2,7 +2,7 @@
 
 ## SOP — Web / App Failure
 
-1. Confirm scope: `curl -I https://app.example.com/health`. 502/504 = proxy up, backend down; timeout = host/proxy down.
+1. Confirm scope: `curl -I https://test.name.vn/health`. 502/504 = proxy up, backend down; timeout = host/proxy down.
 2. Check Nginx: `systemctl status nginx`; `nginx -t`; tail `/var/log/nginx/error.log`.
 3. Check app container: `docker compose ps`; `docker compose logs --tail=100 app`; `curl 127.0.0.1:8000/health`.
 4. Restart: `docker compose up -d app`. If image is bad, redeploy previous tag: `TAG=<prev> docker compose up -d`.

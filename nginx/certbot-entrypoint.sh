@@ -11,7 +11,7 @@
 #   TLS_STAGING  - "1" to use Let's Encrypt staging (avoids rate limits while testing)
 set -eu
 
-DOMAIN="${TLS_DOMAIN:-app.example.com}"
+DOMAIN="${TLS_DOMAIN:-test.name.vn}"
 EMAIL="${TLS_EMAIL:-admin@example.com}"
 WEBROOT="/var/www/certbot"
 LIVE="/etc/letsencrypt/live/${DOMAIN}"

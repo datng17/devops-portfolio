@@ -37,7 +37,7 @@ services:
       - "80:80"
       - "443:443"
     environment:
-      TLS_DOMAIN: ${TLS_DOMAIN:-app.example.com}
+      TLS_DOMAIN: ${TLS_DOMAIN:-test.name.vn}
     # Install openssl (for the temporary self-signed placeholder) then run the
     # entrypoint that renders the templated config, boots nginx so ACME
     # challenges work, and reloads periodically to pick up renewed certs.
@@ -64,7 +64,7 @@ services:
     depends_on:
       - nginx
     environment:
-      TLS_DOMAIN: ${TLS_DOMAIN:-app.example.com}
+      TLS_DOMAIN: ${TLS_DOMAIN:-test.name.vn}
       TLS_EMAIL: ${TLS_EMAIL:-admin@example.com}
       TLS_STAGING: ${TLS_STAGING:-0}
     entrypoint: ["/bin/sh", "/certbot-entrypoint.sh"]

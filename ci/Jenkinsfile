@@ -9,7 +9,7 @@ pipeline {
     TAG          = "${env.GIT_COMMIT?.take(7) ?: env.BUILD_NUMBER}"
     SONAR_HOST   = 'http://sonarqube:9000'
     STAGING_HOST = 'staging.example.com'
-    PROD_HOST    = 'app.example.com'
+    PROD_HOST    = 'test.name.vn'
   }
 
   options {

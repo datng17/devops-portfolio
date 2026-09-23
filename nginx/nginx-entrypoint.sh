@@ -12,7 +12,7 @@
 #   4. Reload every 12h to pick up renewals.
 set -eu
 
-DOMAIN="${TLS_DOMAIN:-app.example.com}"
+DOMAIN="${TLS_DOMAIN:-test.name.vn}"
 LIVE="/etc/letsencrypt/live/${DOMAIN}"
 
 # Render the templated nginx.conf (${TLS_DOMAIN} -> real value).
