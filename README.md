@@ -7,10 +7,7 @@ observed with the **AWS CloudWatch Agent**.
 
 **Stack:** Python (FastAPI) · Docker + Compose · Nginx (TLS + rate limiting) ·
 MySQL 8.0 · Jenkins + SonarQube · AWS (EC2, VPC, CloudWatch)
-
-> Deliberately excludes Java/Tomcat, Kubernetes, Ansible, and Grafana — the scope
-> targets a Linux Systems / DevOps engineer workflow on plain EC2.
-
+![image](/docs/images/background.png)
 ---
 
 ## Architecture Overview
