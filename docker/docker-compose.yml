@@ -1,20 +1,5 @@
 # devops-portfolio/docker/docker-compose.yml
 services:
-  # One-shot init service: auto-generates a self-signed TLS cert into the
-  # shared `letsencrypt` volume before nginx starts, so nginx serves HTTPS
-  # out of the box. Idempotent — skips if a cert already exists.
-  certgen:
-    image: alpine:3.20
-    # Install openssl at runtime, then run the idempotent generator script.
-    entrypoint: ["/bin/sh", "-c", "apk add --no-cache openssl >/dev/null && exec /bin/sh /certgen.sh"]
-    environment:
-      TLS_DOMAIN: ${TLS_DOMAIN:-app.example.com}
-      TLS_DAYS: ${TLS_DAYS:-365}
-    volumes:
-      - ../nginx/certgen.sh:/certgen.sh:ro
-      - letsencrypt:/etc/letsencrypt
-    restart: "no"
-
   app:
     image: ${REGISTRY:-local}/devops-portfolio:${TAG:-latest}
     build:
@@ -48,14 +33,20 @@ services:
     depends_on:
       app:
         condition: service_started
-      certgen:
-        condition: service_completed_successfully
     ports:
       - "80:80"
       - "443:443"
+    environment:
+      TLS_DOMAIN: ${TLS_DOMAIN:-app.example.com}
+    # Install openssl (for the temporary self-signed placeholder) then run the
+    # entrypoint that renders the templated config, boots nginx so ACME
+    # challenges work, and reloads periodically to pick up renewed certs.
+    entrypoint: ["/bin/sh", "-c", "apk add --no-cache openssl gettext >/dev/null && exec /bin/sh /nginx-entrypoint.sh"]
     volumes:
-      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - letsencrypt:/etc/letsencrypt:ro
+      - ../nginx/nginx.conf:/etc/nginx/templates/nginx.conf.template:ro
+      - ../nginx/nginx-entrypoint.sh:/nginx-entrypoint.sh:ro
+      - letsencrypt:/etc/letsencrypt          # read-write: entrypoint drops a placeholder cert
+      - certbot_www:/var/www/certbot          # ACME challenge webroot (shared with certbot)
       - nginx_logs:/var/log/nginx
     networks:
       - frontend
@@ -64,6 +55,25 @@ services:
       interval: 30s
       timeout: 3s
       retries: 3
+
+  # Obtains a real Let's Encrypt cert on first run and auto-renews.
+  # Requires: TLS_DOMAIN resolves (A record) to this host, ports 80/443 open.
+  certbot:
+    image: certbot/certbot:latest
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    environment:
+      TLS_DOMAIN: ${TLS_DOMAIN:-app.example.com}
+      TLS_EMAIL: ${TLS_EMAIL:-admin@example.com}
+      TLS_STAGING: ${TLS_STAGING:-0}
+    entrypoint: ["/bin/sh", "/certbot-entrypoint.sh"]
+    volumes:
+      - ../nginx/certbot-entrypoint.sh:/certbot-entrypoint.sh:ro
+      - letsencrypt:/etc/letsencrypt          # where certs are written
+      - certbot_www:/var/www/certbot          # ACME challenge webroot (shared with nginx)
+    networks:
+      - frontend
 
   mysql:
     image: mysql:8.0
@@ -98,3 +108,4 @@ volumes:
   mysql_data:
   nginx_logs:
   letsencrypt:
+  certbot_www:
