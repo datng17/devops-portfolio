@@ -7,6 +7,8 @@ observed with the **AWS CloudWatch Agent**.
 
 **Stack:** Python (FastAPI) · Docker + Compose · Nginx (TLS + rate limiting) ·
 MySQL 8.0 · Jenkins + SonarQube · AWS (EC2, VPC, CloudWatch)
+
+
 ![image](/docs/images/background.png)
 ---
 
