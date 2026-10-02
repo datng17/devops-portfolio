@@ -1,6 +1,6 @@
 # AWS Console Runbook — Manual Provision & Deploy
 
-**Stack:** FastAPI (`:8000`) + Nginx (`:80/:443`, rate-limited) + MySQL 8.0 + Jenkins → SonarQube → **ECR** → Docker → EC2 + CloudWatch Agent
+**Stack:** FastAPI (`:8000`) + Nginx (`:80` internal, rate-limited) + Cloudflare Tunnel (edge TLS) + MySQL 8.0 + Jenkins → SonarQube → **ECR** → Docker → EC2 + CloudWatch Agent
 
 **Region baseline:** `us-east-1` (matches `.env.example` `AWS_REGION`)
 **Source of truth (code):** GitHub `https://github.com/datng17/devops-portfolio` (public)
@@ -76,12 +76,10 @@
 
   | Dir | Protocol | Port | Source / Dest | Reason |
   |-----|----------|------|---------------|--------|
-  | Inbound | TCP | 80 | `0.0.0.0/0` | Nginx HTTP (redirects to 443) |
-  | Inbound | TCP | 443 | `0.0.0.0/0` | Nginx HTTPS |
   | Inbound | TCP | 22 | `<YOUR_IP>/32` | SSH admin only (or use SSM) |
-  | Outbound | ALL | ALL | `0.0.0.0/0` | ECR / S3 / CloudWatch / packages |
+  | Outbound | ALL | ALL | `0.0.0.0/0` | Cloudflare Tunnel (443/7844) + ECR / S3 / CloudWatch / packages |
 
-  > `8000` (FastAPI) and `3306` (MySQL) are **NOT** exposed — internal to the Docker network only, fronted by the rate-limited Nginx reverse proxy.
+  > **No inbound `80/443`.** Public traffic arrives through the outbound-only Cloudflare Tunnel (`cloudflared` dials out to the Cloudflare edge, which terminates TLS). `8000` (FastAPI), `3306` (MySQL), and `80` (Nginx) are **NOT** exposed — internal to the Docker network only.
 
 ---
 
@@ -104,7 +102,7 @@
   > **Sizing note:** `t3.micro` (1 GiB) is viable **only** with the 2GB swap below; `t3.small` recommended because MySQL 8.0 + FastAPI + Nginx co-reside on one node.
 
 - [ ] **3.2** Paste the User-Data script from **Phase 6** into "Advanced → User data".
-- [ ] **3.3** Allocate + associate an Elastic IP so DNS/TLS survive restarts.
+- [ ] **3.3** No Elastic IP or public DNS record is required — the Cloudflare Tunnel is outbound-only and the public hostname is mapped at the Cloudflare edge. (An Elastic IP is still useful for stable SSH admin access.)
 
 ---
 
@@ -220,8 +218,11 @@ echo "bootstrap complete: docker=$(docker --version) swap=$(swapon --show=NAME -
 - [ ] ECR login works: `aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin "$(aws sts get-caller-identity --query Account --output text).dkr.ecr.us-east-1.amazonaws.com"`
 - [ ] CW agent running: `/opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a status | grep -q '"status": "running"' && echo CW-OK`
 - [ ] CW log groups exist: `aws logs describe-log-groups --log-group-name-prefix /devops-portfolio --region us-east-1 --query 'logGroups[].logGroupName'`
-- [ ] Nginx edge reachable: `curl -sf -o /dev/null -w '%{http_code}\n' http://localhost/health`
-- [ ] FastAPI internal (via proxy): `curl -sf http://localhost/health/db && echo APP-DB-OK`
+- [ ] Cloudflare Tunnel connected: `docker compose -f docker/docker-compose.yml logs --tail=20 cloudflared | grep -i "Registered tunnel connection"` (and **Healthy** in the Zero Trust dashboard)
+- [ ] Nginx origin reachable (internal, no host port): `docker compose -f docker/docker-compose.yml exec nginx wget -qO- http://127.0.0.1/health`
+- [ ] FastAPI internal (via proxy): `docker compose -f docker/docker-compose.yml exec nginx wget -qO- http://127.0.0.1/health/db && echo APP-DB-OK`
+- [ ] Public hostname serves HTTPS: `curl -sf -o /dev/null -w '%{http_code}\n' https://portfolio.dev/health`
+- [ ] Nginx NOT public (must fail — no host port): `! timeout 3 bash -c '</dev/tcp/<ELASTIC_IP>/80' && echo "80-closed-OK"`
 - [ ] MySQL not public (must fail): `! timeout 3 bash -c '</dev/tcp/<ELASTIC_IP>/3306' && echo "3306-closed-OK"`
 - [ ] App not public (must fail): `! timeout 3 bash -c '</dev/tcp/<ELASTIC_IP>/8000' && echo "8000-closed-OK"`
 

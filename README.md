@@ -1,12 +1,15 @@
 # DevOps Portfolio — Production-Grade FastAPI on AWS EC2
 
 End-to-end DevOps reference project: a containerized **FastAPI** service behind an
-**Nginx** TLS reverse proxy, backed by **MySQL 8.0**, shipped through a
-**Jenkins → SonarQube → Docker → AWS EC2** pipeline, hardened at the OS layer and
-observed with the **AWS CloudWatch Agent**.
+**Nginx** reverse proxy, exposed to the internet through a **Cloudflare Tunnel**
+that terminates TLS at the edge with an automatically managed certificate. The app
+is backed by **MySQL 8.0**, shipped through a **Jenkins → SonarQube → Docker → AWS
+EC2** pipeline, hardened at the OS layer and observed with the **AWS CloudWatch
+Agent**.
 
-**Stack:** Python (FastAPI) · Docker + Compose · Nginx (TLS + rate limiting) ·
-MySQL 8.0 · Jenkins + SonarQube · AWS (EC2, VPC, CloudWatch)
+**Stack:** Python (FastAPI) · Docker + Compose · Nginx (rate limiting + security
+headers) · Cloudflare Tunnel (automatic edge TLS) · MySQL 8.0 · Jenkins +
+SonarQube · AWS (EC2, VPC, CloudWatch)
 
 
 ![image](/docs/images/background.png)
@@ -15,13 +18,23 @@ MySQL 8.0 · Jenkins + SonarQube · AWS (EC2, VPC, CloudWatch)
 ## Architecture Overview
 
 ```
-                          Internet (80/443)
+                        Internet (HTTPS 443)
                                  │
                         ┌────────▼─────────┐
-                        │      Nginx        │  TLS 1.2/1.3, HSTS, security headers
-                        │  reverse proxy    │  rate limit (req zone) + conn limit
+                        │  Cloudflare edge  │  terminates TLS 1.2/1.3 with an
+                        │   (managed cert)  │  auto-renewed managed certificate
                         └────────┬─────────┘
-                                 │ proxy_pass 127.0.0.1:8000  (frontend network)
+                                 │ encrypted tunnel (outbound-only, no open ports)
+                        ┌────────▼─────────┐
+                        │    cloudflared    │  Docker container, no host port
+                        │  tunnel daemon    │  dials out to Cloudflare, pulls traffic
+                        └────────┬─────────┘
+                                 │ http://nginx:80  (frontend network)
+                        ┌────────▼─────────┐
+                        │      Nginx        │  security headers, rate limit
+                        │  reverse proxy    │  (req zone) + conn limit — plain HTTP
+                        └────────┬─────────┘
+                                 │ proxy_pass app:8000  (frontend network)
                         ┌────────▼─────────┐
                         │   FastAPI (app)   │  uvicorn :8000, /health + /health/db
                         │   Docker container│  no host port published (expose only)
@@ -39,9 +52,14 @@ MySQL 8.0 · Jenkins + SonarQube · AWS (EC2, VPC, CloudWatch)
 ```
 
 **Network segmentation (Compose):** two bridge networks. `frontend` connects
-Nginx↔app; `backend` (`internal: true`) connects app↔MySQL with no host or
-outbound exposure. The database publishes **no** host port — only the app can
-reach it.
+cloudflared↔Nginx↔app; `backend` (`internal: true`) connects app↔MySQL with no
+host or outbound exposure. The database publishes **no** host port — only the app
+can reach it.
+
+**Edge exposure:** the host publishes **no** inbound ports (no 80/443, no public
+IP required). `cloudflared` opens an outbound-only connection to the Cloudflare
+edge; Cloudflare terminates TLS with an automatically managed certificate and
+routes the public hostname to the internal `http://nginx:80` origin.
 
 **Health model:** `/health` is a liveness probe (no DB dependency); `/health/db`
 is a readiness probe that pings MySQL and returns `503` when it is unreachable.
@@ -59,11 +77,11 @@ is a readiness probe that pings MySQL and returns `503` when it is unreachable.
 │   └── tests/               pytest suite
 ├── docker/
 │   ├── Dockerfile           app image
-│   ├── docker-compose.yml   base stack (app + nginx + mysql)
+│   ├── docker-compose.yml   base stack (app + nginx + cloudflared + mysql)
 │   └── docker-compose.prod.yml   production overrides
 ├── nginx/
-│   ├── nginx.conf           global config, rate-limit zones
-│   └── app.conf             TLS vhost, HSTS, proxy, limits
+│   ├── nginx.conf           plain-HTTP origin, rate-limit zones, headers
+│   └── app.conf             alt plain-HTTP vhost, proxy, limits
 ├── mysql/
 │   ├── my.cnf               InnoDB / connection tuning
 │   └── init/01-schema.sql   schema + seed
@@ -96,15 +114,17 @@ Applied via `scripts/harden.sh` (idempotent; supports Ubuntu/Debian + RHEL/Amazo
 |-------|---------|
 | **SSH** | Key-only auth (`PasswordAuthentication no`), `PermitRootLogin no`, `MaxAuthTries 3`, idle timeout, config validated with `sshd -t` before restart |
 | **Accounts** | Dedicated non-root sudo user; password login locked |
-| **Firewall** | UFW (or firewalld on RHEL) default-deny inbound; only 22/80/443 allowed |
+| **Firewall** | UFW (or firewalld on RHEL) default-deny inbound; only `22` (SSH) allowed — no inbound `80/443` needed since the Cloudflare Tunnel is outbound-only |
 | **Brute-force** | fail2ban `sshd` jail — 3 retries, 1h ban |
 | **Kernel (sysctl)** | rp_filter, disable source-route/redirects, `tcp_syncookies`, `log_martians`, ASLR (`randomize_va_space=2`), `kptr_restrict`, `dmesg_restrict`, protected symlinks/hardlinks |
 | **Patching** | Unattended security upgrades (`unattended-upgrades` / `dnf-automatic`) |
 
 **Application / edge hardening:**
-- Nginx enforces TLS 1.2/1.3 with a modern cipher suite, HSTS, `X-Content-Type-Options`, `X-Frame-Options: DENY`, and `Referrer-Policy`.
-- Rate limiting via `limit_req` (burst) + `limit_conn` per client.
-- MySQL and the app publish **no** host ports; the DB tier sits on an `internal` Docker network.
+- **Cloudflare Tunnel** terminates TLS 1.2/1.3 at the edge with an automatically issued and renewed managed certificate — no certificates, private keys, or ACME challenges live on the host, and no inbound ports are opened.
+- The origin is never exposed directly: `cloudflared` dials out to Cloudflare, so the host needs no public IP and no inbound `80/443`. Optionally layer Cloudflare WAF, bot management, and Zero Trust Access policies at the edge.
+- Nginx (plain HTTP, internal only) still adds `X-Content-Type-Options`, `X-Frame-Options: DENY`, `Referrer-Policy`, and `Content-Security-Policy`, and preserves the real client IP from `CF-Connecting-IP`.
+- Rate limiting via `limit_req` (burst) + `limit_conn` per client (edge-side rate limiting available via Cloudflare rules).
+- MySQL, the app, and Nginx publish **no** host ports; the DB tier sits on an `internal` Docker network.
 - Parameterized SQL (SQLAlchemy `text()` with bind params) — no string interpolation.
 - Pydantic input validation on write endpoints (`name` length bounds).
 - CI enforces a SonarQube **Quality Gate** that aborts the pipeline on failure.
@@ -128,10 +148,32 @@ PYTHONPATH=. uvicorn app.main:app --reload    # http://127.0.0.1:8000
 ### Full stack (Docker Compose)
 
 ```bash
-cp .env.example .env                 # set DB_*, REGISTRY, TAG
+cp .env.example .env                 # set DB_*, REGISTRY, TAG, CLOUDFLARE_TUNNEL_TOKEN
 docker compose -f docker/docker-compose.yml up -d --build
-curl -fsS http://127.0.0.1/health    # via nginx
+docker compose -f docker/docker-compose.yml logs -f cloudflared   # watch the tunnel connect
 ```
+
+The stack publishes **no** host ports. Reach the service through the public
+hostname configured on the tunnel (`https://<your-hostname>/health`), which
+Cloudflare serves over HTTPS automatically. For a local origin smoke test:
+
+```bash
+docker compose -f docker/docker-compose.yml exec nginx wget -qO- http://127.0.0.1/health
+```
+
+### Set up the Cloudflare Tunnel
+
+Automatic HTTPS comes from Cloudflare — there is no certificate to manage.
+
+1. In the **Cloudflare Zero Trust dashboard** → **Networks → Tunnels**, create a
+   tunnel of type **Cloudflared**.
+2. Add a **public hostname** (`portfolio.dev`) and set the service to
+   `http://nginx:80` — this is the internal origin cloudflared reaches on the
+   Compose `frontend` network.
+3. Copy the tunnel **token** and set it in `.env` as `CLOUDFLARE_TUNNEL_TOKEN`.
+4. Bring the stack up; `cloudflared` dials out to Cloudflare and the hostname
+   goes live over HTTPS. No DNS A record, open ports, or public IP are required —
+   the tunnel is outbound-only and Cloudflare manages the TLS certificate.
 
 ### Harden an EC2 host
 
@@ -167,7 +209,7 @@ images.
 ### Bring-up order
 
 VPC/subnets/SGs → EC2 hosts → `harden.sh` → MySQL → Jenkins/SonarQube → web host +
-Nginx + TLS → CloudWatch agent/alarms → push to trigger the pipeline → enable
-backup/health cron + logrotate.
+Nginx + Cloudflare Tunnel (`cloudflared`) → CloudWatch agent/alarms → push to
+trigger the pipeline → enable backup/health cron + logrotate.
 
 See `docs/runbook.md`, `docs/capacity-planning.md` for operational

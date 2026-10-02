@@ -4,7 +4,7 @@ import os
 import sys
 import urllib.request
 
-BASE = os.getenv("APP_BASE_URL", "https://test.name.vn")
+BASE = os.getenv("APP_BASE_URL", "https://portfolio.dev")
 
 CHECKS = [
     ("nginx->app health", f"{BASE}/health", 200),

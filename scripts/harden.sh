@@ -98,16 +98,14 @@ if command -v ufw >/dev/null 2>&1 || [ "$PKG" = "apt" ]; then
   ufw default deny incoming
   ufw default allow outgoing
   ufw allow "${SSH_PORT}/tcp"
-  ufw allow 80/tcp
-  ufw allow 443/tcp
+  # No inbound 80/443: traffic arrives via the outbound-only Cloudflare Tunnel.
   ufw --force enable
 else
   echo "[*] Firewall via firewalld (default deny inbound)"
   pkg_install firewalld
   systemctl enable --now firewalld
   firewall-cmd --permanent --add-port="${SSH_PORT}/tcp"
-  firewall-cmd --permanent --add-service=http
-  firewall-cmd --permanent --add-service=https
+  # No inbound http/https services: the Cloudflare Tunnel is outbound-only.
   firewall-cmd --reload
 fi
 
