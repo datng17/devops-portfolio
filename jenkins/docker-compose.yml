@@ -1,0 +1,58 @@
+# Local Jenkins for the eks-portfolio pipeline.
+#   pwsh scripts/render-jenkins-secrets.ps1 [-CreateAccessKey]   # writes jenkins/secrets/*
+#   docker compose -f jenkins/docker-compose.yml up -d --build
+#   open http://localhost:8080 (user admin, password in jenkins/secrets/jenkins_admin_password)
+name: eks-portfolio-jenkins
+
+services:
+  jenkins:
+    build:
+      context: .
+    image: eks-portfolio-jenkins:2.580.1-lts-jdk21
+    container_name: eks-portfolio-jenkins
+    restart: unless-stopped
+    ports:
+      # Loopback only: the UI is never exposed to the LAN.
+      - "127.0.0.1:8080:8080"
+    environment:
+      AWS_REGION: ${AWS_REGION:-us-east-1}
+      EKS_CLUSTER_NAME: ${EKS_CLUSTER_NAME:-eks-portfolio}
+      APP_URL: ${APP_URL:-https://test.name.vn}
+      # Default: the working copy mounted below. A GitHub URL works too.
+      PORTFOLIO_GIT_URL: ${PORTFOLIO_GIT_URL:-file:///repo}
+      PORTFOLIO_GIT_BRANCH: ${PORTFOLIO_GIT_BRANCH:-*/eks-portfolio}
+    # Group that owns /var/run/docker.sock inside the container
+    # (0 on Docker Desktop; check with: stat -c %g /var/run/docker.sock).
+    group_add:
+      - "${DOCKER_GID:-0}"
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # WARNING: mounting the Docker socket gives this container (and every
+      # pipeline it runs) root-equivalent control of the host's Docker daemon,
+      # which means root on the host/VM. Acceptable for a loopback-only local
+      # demo; in production use Kaniko, rootless BuildKit or ephemeral agents.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The git repo the job polls (committed state only; read-only).
+      - ..:/repo:ro
+    secrets:
+      - jenkins_admin_password
+      - jenkins_ci_access_key_id
+      - jenkins_ci_secret_access_key
+      - jenkins_deployer_role_arn
+      - ingress_config_env
+
+# Gitignored files, rendered by scripts/render-jenkins-secrets.ps1.
+secrets:
+  jenkins_admin_password:
+    file: ./secrets/jenkins_admin_password
+  jenkins_ci_access_key_id:
+    file: ./secrets/jenkins_ci_access_key_id
+  jenkins_ci_secret_access_key:
+    file: ./secrets/jenkins_ci_secret_access_key
+  jenkins_deployer_role_arn:
+    file: ./secrets/jenkins_deployer_role_arn
+  ingress_config_env:
+    file: ./secrets/ingress_config_env
+
+volumes:
+  jenkins_home:

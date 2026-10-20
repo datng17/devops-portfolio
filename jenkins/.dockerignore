@@ -1,0 +1,4 @@
+# Only Dockerfile, plugins.txt and casc.yaml belong in the image context
+secrets
+docker-compose.yml
+*.md

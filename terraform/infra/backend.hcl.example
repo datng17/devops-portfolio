@@ -1,0 +1,6 @@
+# Copy to backend.hcl (gitignored) and run:
+#   terraform init -backend-config=backend.hcl
+# bucket = output "state_bucket_name" from terraform/bootstrap.
+bucket = "eks-portfolio-tfstate-<account_id>-us-east-1"
+key    = "infra/terraform.tfstate"
+region = "us-east-1"

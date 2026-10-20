@@ -1,0 +1,25 @@
+# Only package*.json, tsconfig.json, public/, src/ and nginx/ are needed in the build context
+node_modules
+build
+coverage
+reports
+.git
+.gitignore
+.kiro
+.codesight
+.vscode
+.idea
+terraform
+k8s
+jenkins
+docs
+scripts
+Dockerfile
+.dockerignore
+Jenkinsfile
+*.md
+LICENSE
+.env*
+npm-debug.log*
+**/*.test.ts
+**/*.test.tsx

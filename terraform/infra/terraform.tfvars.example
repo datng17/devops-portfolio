@@ -1,0 +1,25 @@
+# Copy to terraform.tfvars (gitignored) and adjust.
+region       = "us-east-1"
+project      = "eks-portfolio"
+environment  = "dev"
+cluster_name = "eks-portfolio"
+vpc_cidr     = "10.0.0.0/16"
+azs          = ["us-east-1a", "us-east-1b"]
+
+# VPC endpoints and ECR (Task 4)
+enable_interface_endpoints  = true
+interface_endpoint_services = ["ecr.api", "ecr.dkr", "logs"]
+ecr_repository_name         = "portfolio"
+ecr_force_delete            = false
+
+# ACM (Task 5). The cert is managed outside Terraform so destroy never deletes
+# it: request a DNS-validated cert for domain_name in ACM, add the CNAME at your
+# DNS provider, wait for ISSUED. Terraform looks it up by domain.
+domain_name = "test.name.vn"
+
+# EKS (Task 6). admin_cidrs: your public IP (curl https://checkip.amazonaws.com)/32;
+# local Jenkins egresses from the same IP.
+kubernetes_version = "1.37"
+admin_cidrs        = ["203.0.113.10/32"]
+# admin_principal_arn = "arn:aws:iam::<account_id>:user/<name>" # default: identity running Terraform
+cluster_log_retention_days = 7

@@ -1,0 +1,16 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+  labels:
+    app.kubernetes.io/part-of: eks-portfolio
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true" # AWS-managed aws/ebs key
+  fsType: ext4
+# Create the volume in the AZ the pod is scheduled to (EBS is zonal).
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+# Data survives PVC deletion; teardown must delete PVs/EBS volumes explicitly.
+reclaimPolicy: Retain

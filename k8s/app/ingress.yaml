@@ -1,0 +1,46 @@
+# Internet-facing ALB managed by the AWS Load Balancer Controller (Task 8).
+# The security group is owned by Terraform (terraform/infra/security_groups.tf):
+# 80/443 from the internet, 8080 egress to the node SG only. The controller
+# must not add its own backend rules, hence manage-backend-security-group-rules.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: portfolio
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+    alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # Replaced from ingress-config.env (ACM_CERTIFICATE_ARN) by kustomize.
+    alb.ingress.kubernetes.io/certificate-arn: ACM_CERTIFICATE_ARN
+    alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+    # Stable ALB across Ingress changes, so the manual DNS CNAME stays valid.
+    alb.ingress.kubernetes.io/group.name: portfolio
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "10"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/success-codes: "200"
+    # Replaced from ingress-config.env (ALB_SECURITY_GROUP_ID) by kustomize.
+    alb.ingress.kubernetes.io/security-groups: ALB_SECURITY_GROUP_ID
+    alb.ingress.kubernetes.io/manage-backend-security-group-rules: "false"
+    alb.ingress.kubernetes.io/target-group-attributes: deregistration_delay.timeout_seconds=30
+spec:
+  ingressClassName: alb
+  tls:
+    - hosts:
+        - test.name.vn
+  rules:
+    - host: test.name.vn
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: portfolio
+                port:
+                  name: http

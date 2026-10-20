@@ -1,0 +1,15 @@
+# Extra Nginx access-log sink, mounted at /etc/nginx/logging and picked up by
+# "include /etc/nginx/logging/*.conf;" inside the server block (nginx/nginx.conf).
+# stdout logging stays on; this adds a syslog copy to the log-sink StatefulSet
+# (k8s/platform). Nginx resolves the server name once at startup, so the
+# log-sink Service must exist before app pods start (platform layer first).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: portfolio-nginx-logging
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+data:
+  syslog.conf: |
+    access_log syslog:server=log-sink.portfolio.svc.cluster.local:5140,facility=local7,tag=nginx,severity=info main;

@@ -1,0 +1,14 @@
+# Optional: copy to terraform.tfvars (gitignored). All values have defaults.
+region      = "us-east-1"
+project     = "eks-portfolio"
+environment = "dev"
+
+# Null derives eks-portfolio-tfstate-<account_id>-<region>.
+# state_bucket    = "eks-portfolio-tfstate-<account_id>-us-east-1"
+infra_state_key = "infra/terraform.tfstate"
+
+# If AWS CLI v1 is first on PATH, point the providers at v2 explicitly.
+# aws_cli_command = "C:/Program Files/Amazon/AWSCLIV2/aws.exe"
+
+lbc_chart_version = "3.6.0"
+lbc_replica_count = 2

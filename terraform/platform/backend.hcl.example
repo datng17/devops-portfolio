@@ -1,0 +1,6 @@
+# Copy to backend.hcl (gitignored) and run (quoted in PowerShell):
+#   terraform init "-backend-config=backend.hcl"
+# Same bucket as terraform/infra, different key.
+bucket = "eks-portfolio-tfstate-<account_id>-us-east-1"
+key    = "platform/terraform.tfstate"
+region = "us-east-1"

@@ -1,0 +1,77 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Prerequisites: k8s/platform applied (namespace, log-sink Service) and
+# ingress-config.env rendered from Terraform outputs:
+#   pwsh scripts/render-k8s-config.ps1
+#   kubectl apply -k k8s/app
+# Everything here is namespaced (portfolio), so the jenkins-deployer access
+# entry (Edit on the namespace) can apply it.
+resources:
+  - serviceaccount.yaml
+  - nginx-logging.yaml
+  - deployment.yaml
+  - service.yaml
+  - pdb.yaml
+  - hpa.yaml
+  - ingress.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: eks-portfolio
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+
+# Image tag; the CI pipeline runs "kustomize edit set image portfolio:<sha>".
+# The repository part is replaced below from ECR_REPOSITORY_URL.
+images:
+  - name: portfolio
+    newTag: local
+
+# Generated, gitignored: ACM_CERTIFICATE_ARN, ALB_SECURITY_GROUP_ID,
+# ECR_REPOSITORY_URL. Marked local-config, so it is only an input to the
+# replacements and is never sent to the cluster.
+configMapGenerator:
+  - name: ingress-config
+    namespace: portfolio
+    envs:
+      - ingress-config.env
+    options:
+      disableNameSuffixHash: true
+      annotations:
+        config.kubernetes.io/local-config: "true"
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: ingress-config
+      fieldPath: data.ACM_CERTIFICATE_ARN
+    targets:
+      - select:
+          kind: Ingress
+          name: portfolio
+        fieldPaths:
+          - metadata.annotations.[alb.ingress.kubernetes.io/certificate-arn]
+  - source:
+      kind: ConfigMap
+      name: ingress-config
+      fieldPath: data.ALB_SECURITY_GROUP_ID
+    targets:
+      - select:
+          kind: Ingress
+          name: portfolio
+        fieldPaths:
+          - metadata.annotations.[alb.ingress.kubernetes.io/security-groups]
+  - source:
+      kind: ConfigMap
+      name: ingress-config
+      fieldPath: data.ECR_REPOSITORY_URL
+    targets:
+      - select:
+          kind: Deployment
+          name: portfolio
+        fieldPaths:
+          - spec.template.spec.containers.[name=portfolio].image
+        options:
+          delimiter: ":"
+          index: 0

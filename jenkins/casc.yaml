@@ -1,0 +1,92 @@
+# Jenkins Configuration as Code.
+# ${name} values without a default are Docker secrets read from
+# /run/secrets/<name> (see docker-compose.yml, rendered by
+# scripts/render-jenkins-secrets.ps1). Other ${VAR:-default} values are
+# container environment variables.
+jenkins:
+  systemMessage: "eks-portfolio local CI (configured by JCasC; UI changes are overwritten on restart)"
+  # Local demo: builds run on the built-in node, which has the tools.
+  numExecutors: 2
+  mode: NORMAL
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: admin
+          name: Admin
+          password: "${jenkins_admin_password}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+  globalNodeProperties:
+    - envVars:
+        env:
+          - key: AWS_REGION
+            value: "${AWS_REGION:-us-east-1}"
+          - key: EKS_CLUSTER_NAME
+            value: "${EKS_CLUSTER_NAME:-eks-portfolio}"
+          - key: APP_URL
+            value: "${APP_URL:-https://test.name.vn}"
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          # IAM user jenkins-ci: its only permission is sts:AssumeRole on jenkins-deployer.
+          - usernamePassword:
+              scope: GLOBAL
+              id: jenkins-ci-aws
+              description: "jenkins-ci access key (assumes jenkins-deployer)"
+              username: "${jenkins_ci_access_key_id}"
+              usernameSecret: true
+              password: "${jenkins_ci_secret_access_key}"
+          - string:
+              scope: GLOBAL
+              id: jenkins-deployer-role-arn
+              description: "terraform output jenkins_deployer_role_arn"
+              secret: "${jenkins_deployer_role_arn}"
+          # k8s/app/ingress-config.env is gitignored (account-specific values),
+          # so the pipeline gets it from this secret file.
+          - file:
+              scope: GLOBAL
+              id: portfolio-ingress-config
+              description: "k8s/app/ingress-config.env (scripts/render-k8s-config.ps1)"
+              fileName: ingress-config.env
+              secretBytes: "${readFileBase64:/run/secrets/ingress_config_env}"
+
+unclassified:
+  location:
+    url: "http://localhost:8080/"
+
+jobs:
+  - script: |
+      pipelineJob('portfolio') {
+        description('Build, push to ECR and deploy to EKS (namespace portfolio). Jenkinsfile in the repo root.')
+        parameters {
+          stringParam('OVERRIDE_IMAGE_TAG', '', 'Deploy this existing image tag instead of building the commit (rollback / failure demo).')
+        }
+        properties {
+          pipelineTriggers {
+            triggers {
+              // Local Jenkins cannot receive webhooks, so poll.
+              pollSCM {
+                scmpoll_spec('H/2 * * * *')
+              }
+            }
+          }
+        }
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('${PORTFOLIO_GIT_URL:-file:///repo}')
+                }
+                branch('${PORTFOLIO_GIT_BRANCH:-*/master}')
+              }
+            }
+            scriptPath('Jenkinsfile')
+            lightweight(true)
+          }
+        }
+      }

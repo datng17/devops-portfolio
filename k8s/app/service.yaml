@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: portfolio
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: portfolio
+spec:
+  # ClusterIP is enough: the ALB uses target-type ip and talks to pod IPs.
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: portfolio
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: http

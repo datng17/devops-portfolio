@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Apply after terraform/platform (it generates log-sink-config.env):
+#   kubectl apply -k k8s/platform
+resources:
+  - namespace.yaml
+  - storageclass-gp3.yaml
+  - log-sink.yaml
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: eks-portfolio
+      app.kubernetes.io/managed-by: kustomize
+    includeSelectors: false
+
+# Generated, gitignored: CW_REGION, LOG_GROUP_NAME, LOG_SINK_ROLE_ARN.
+# The hash suffix rolls the log-sink pod when a value changes.
+configMapGenerator:
+  - name: log-sink-config
+    namespace: portfolio
+    envs:
+      - log-sink-config.env
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: log-sink-config
+      fieldPath: data.LOG_SINK_ROLE_ARN
+    targets:
+      - select:
+          kind: ServiceAccount
+          name: log-sink
+        fieldPaths:
+          - metadata.annotations.[eks.amazonaws.com/role-arn]
