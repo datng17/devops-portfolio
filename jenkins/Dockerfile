@@ -67,9 +67,6 @@ RUN curl -fsSLo node.tar.xz "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NO
 
 ENV PATH="/opt/node/bin:${PATH}"
 
-# The repo is bind-mounted read-only at /repo with host ownership; let git use it.
-RUN git config --system --add safe.directory '*'
-
 WORKDIR /
 
 USER jenkins
@@ -81,4 +78,4 @@ RUN jenkins-plugin-cli --plugin-file /usr/share/jenkins/ref/plugins.txt
 # "portfolio" pipeline job. Lives outside JENKINS_HOME so a rebuild applies it.
 COPY --chown=jenkins:jenkins casc.yaml /usr/share/jenkins/casc/casc.yaml
 ENV CASC_JENKINS_CONFIG=/usr/share/jenkins/casc/casc.yaml \
-    JAVA_OPTS="-Djenkins.install.runSetupWizard=false -Dhudson.plugins.git.GitSCM.ALLOW_LOCAL_CHECKOUT=true"
+    JAVA_OPTS="-Djenkins.install.runSetupWizard=false"

@@ -18,9 +18,9 @@ services:
       AWS_REGION: ${AWS_REGION:-us-east-1}
       EKS_CLUSTER_NAME: ${EKS_CLUSTER_NAME:-eks-portfolio}
       APP_URL: ${APP_URL:-https://test.name.vn}
-      # Default: the working copy mounted below. A GitHub URL works too.
-      PORTFOLIO_GIT_URL: ${PORTFOLIO_GIT_URL:-file:///repo}
-      PORTFOLIO_GIT_BRANCH: ${PORTFOLIO_GIT_BRANCH:-*/eks-portfolio}
+      # Public repo, polled over HTTPS (no credentials needed).
+      PORTFOLIO_GIT_URL: ${PORTFOLIO_GIT_URL:-https://github.com/datng17/devops-portfolio.git}
+      PORTFOLIO_GIT_BRANCH: ${PORTFOLIO_GIT_BRANCH:-*/main}
     # Group that owns /var/run/docker.sock inside the container
     # (0 on Docker Desktop; check with: stat -c %g /var/run/docker.sock).
     group_add:
@@ -32,8 +32,6 @@ services:
       # which means root on the host/VM. Acceptable for a loopback-only local
       # demo; in production use Kaniko, rootless BuildKit or ephemeral agents.
       - /var/run/docker.sock:/var/run/docker.sock
-      # The git repo the job polls (committed state only; read-only).
-      - ..:/repo:ro
     secrets:
       - jenkins_admin_password
       - jenkins_ci_access_key_id

@@ -80,9 +80,9 @@ jobs:
             scm {
               git {
                 remote {
-                  url('${PORTFOLIO_GIT_URL:-file:///repo}')
+                  url('${PORTFOLIO_GIT_URL:-https://github.com/datng17/devops-portfolio.git}')
                 }
-                branch('${PORTFOLIO_GIT_BRANCH:-*/master}')
+                branch('${PORTFOLIO_GIT_BRANCH:-*/main}')
               }
             }
             scriptPath('Jenkinsfile')
