@@ -1,0 +1,116 @@
+# In-cluster load test for the HPA demo (Task 11). Not part of k8s/app; apply
+# it on demand with scripts/hpa-load-test.sh (or kubectl apply -f) and delete
+# it afterwards.
+#
+# Static nginx barely uses CPU, so the test is aggressive on purpose: up to 40
+# VUs with no think time against the ClusterIP Service. HPA utilization is
+# relative to the 50m CPU request, so 2 pods at their 200m limit read as 400%
+# against the 60% target and the HPA goes straight to maxReplicas (5).
+#
+# noConnectionReuse: kube-proxy balances per connection. With keep-alive the
+# VUs would stay pinned to the first 2 pods and new replicas would sit idle.
+#
+# The pod is PSA "restricted" compliant (namespace enforce=restricted).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-load-script
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: k6-load
+    app.kubernetes.io/part-of: eks-portfolio
+data:
+  load.js: |
+    import http from 'k6/http';
+    import { check } from 'k6';
+
+    const BASE = __ENV.TARGET_URL;
+
+    export const options = {
+      noConnectionReuse: true,
+      // About 5 minutes in total.
+      stages: [
+        { duration: '30s', target: 20 },
+        { duration: '30s', target: 40 },
+        { duration: '3m', target: 40 },
+        { duration: '1m', target: 0 },
+      ],
+      thresholds: {
+        http_req_failed: ['rate<0.01'],
+        checks: ['rate>0.99'],
+      },
+      summaryTrendStats: ['avg', 'med', 'p(95)', 'p(99)', 'max'],
+    };
+
+    export default function () {
+      const responses = http.batch([
+        ['GET', `${BASE}/`, null, { tags: { name: 'index' } }],
+        ['GET', `${BASE}/healthz`, null, { tags: { name: 'healthz' } }],
+        ['GET', `${BASE}/some/deep/link`, null, { tags: { name: 'deeplink' } }],
+      ]);
+      for (const res of responses) {
+        check(res, { 'status is 200': (r) => r.status === 200 });
+      }
+    }
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-load
+  namespace: portfolio
+  labels:
+    app.kubernetes.io/name: k6-load
+    app.kubernetes.io/part-of: eks-portfolio
+spec:
+  backoffLimit: 0
+  activeDeadlineSeconds: 600
+  ttlSecondsAfterFinished: 1800
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: k6-load
+    spec:
+      restartPolicy: Never
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        # The k6 user baked into grafana/k6.
+        runAsUser: 12345
+        runAsGroup: 12345
+        seccompProfile:
+          type: RuntimeDefault
+      containers:
+        - name: k6
+          image: grafana/k6:1.8.2@sha256:bd6ae8607c0a05d0dc0dc3f5753c464b0929baf083ef0f20b7eed845a3d9e6b4
+          imagePullPolicy: IfNotPresent
+          args: ["run", "--quiet", "/scripts/load.js"]
+          env:
+            - name: TARGET_URL
+              value: http://portfolio.portfolio.svc.cluster.local
+            - name: K6_NO_USAGE_REPORT
+              value: "true"
+          resources:
+            requests:
+              cpu: 500m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: script
+              mountPath: /scripts
+              readOnly: true
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: script
+          configMap:
+            name: k6-load-script
+        - name: tmp
+          emptyDir:
+            sizeLimit: 64Mi
