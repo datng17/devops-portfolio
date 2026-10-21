@@ -15,8 +15,11 @@ to WSL.
 - `maxSurge: 1`, `maxUnavailable: 0`: a rollout never drops below the current
   capacity.
 - PDB `minAvailable: 1`: a drain can evict only one portfolio pod at a time.
-- `preStop` sleep 10 s + 30 s grace: a terminating pod keeps serving while the
-  ALB deregisters it and endpoints update.
+- `preStop` sleep 30 s + 45 s grace: a terminating pod keeps serving while the
+  ALB deregisters it and endpoints update. It was 10 s at first; Drill 3 then
+  lost 3 requests because the drain also evicted the AWS Load Balancer
+  Controller leader and the standby needed about 20 s to take the lease and
+  deregister the target.
 - ALB readiness gates (`elbv2.k8s.aws/pod-readiness-gate-inject`): a new pod
   only counts as Ready once the ALB reports its target healthy, so a rollout
   can't outrun the ALB.
@@ -92,7 +95,9 @@ kubectl uncordon "$NODE"
 ```
 
 Expected: `non-200: 0`. The PDB lets the drain evict one portfolio pod; it is
-recreated in us-east-1a while the existing 1a pod serves. kube-system
+recreated in us-east-1a while the existing 1a pod serves. If the LBC leader
+runs on the drained node, ALB deregistration waits for leader failover (about
+20 s), which is why the preStop sleep is 30 s. kube-system
 deployments (LBC, CoreDNS, metrics-server, EBS CSI) run 2 replicas with
 `maxUnavailable: 1` PDBs. After uncordon nothing moves back on its own; the
 rollout in Drill 4 re-spreads the pods across both AZs.

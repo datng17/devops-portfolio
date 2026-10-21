@@ -27,8 +27,8 @@ spec:
     spec:
       serviceAccountName: portfolio
       automountServiceAccountToken: false
-      # Longer than preStop sleep + nginx graceful shutdown.
-      terminationGracePeriodSeconds: 30
+      # Longer than preStop sleep (30 s) + nginx graceful shutdown.
+      terminationGracePeriodSeconds: 45
       securityContext:
         runAsNonRoot: true
         runAsUser: 101
@@ -93,9 +93,12 @@ spec:
           lifecycle:
             # Keep serving while the ALB deregisters the target and kube-proxy
             # / endpoints catch up, then let nginx shut down gracefully.
+            # 30 s, not 10 s: draining a node can evict the LBC leader too, and
+            # the standby took ~20 s to take the lease and deregister the
+            # target (Task 11 Drill 3 run 1: 3 x 000 with a 10 s sleep).
             preStop:
               sleep:
-                seconds: 10
+                seconds: 30
           securityContext:
             allowPrivilegeEscalation: false
             readOnlyRootFilesystem: true
