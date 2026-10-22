@@ -170,3 +170,13 @@ output "portfolio_nginx_log_group_name" {
   description = "CloudWatch log group the log-sink writes Nginx access logs to."
   value       = aws_cloudwatch_log_group.portfolio_nginx.name
 }
+
+output "admin_cidrs" {
+  description = "Effective EKS public API allowlist (static admin_cidrs + detected IP)."
+  value       = local.admin_cidrs
+}
+
+output "admin_cidrs_static" {
+  description = "Static admin_cidrs only; scripts/sync-admin-ip.ps1 adds the current IP to these."
+  value       = var.admin_cidrs
+}

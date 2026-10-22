@@ -28,7 +28,7 @@ module "eks" {
   # API reachable publicly from admin/Jenkins CIDRs only; nodes use the
   # private endpoint inside the VPC.
   endpoint_public_access       = true
-  endpoint_public_access_cidrs = var.admin_cidrs
+  endpoint_public_access_cidrs = local.admin_cidrs
   endpoint_private_access      = true
 
   enabled_log_types                      = ["api", "audit", "authenticator"]

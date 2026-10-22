@@ -17,9 +17,12 @@ ecr_force_delete            = false
 # DNS provider, wait for ISSUED. Terraform looks it up by domain.
 domain_name = "test.name.vn"
 
-# EKS (Task 6). admin_cidrs: your public IP (curl https://checkip.amazonaws.com)/32;
-# local Jenkins egresses from the same IP.
-kubernetes_version = "1.37"
-admin_cidrs        = ["203.0.113.10/32"]
+# EKS (Task 6). The public API allows the IP of the machine running Terraform
+# (auto-detected from https://checkip.amazonaws.com; local Jenkins egresses from
+# the same IP) plus any static admin_cidrs. Run scripts/sync-admin-ip.ps1 when
+# the IP changes between applies (or install it as a scheduled task).
+kubernetes_version   = "1.37"
+auto_detect_admin_ip = true
+admin_cidrs          = [] # e.g. ["203.0.113.10/32"] for a second fixed location
 # admin_principal_arn = "arn:aws:iam::<account_id>:user/<name>" # default: identity running Terraform
 cluster_log_retention_days = 7

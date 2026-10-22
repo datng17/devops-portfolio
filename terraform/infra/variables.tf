@@ -81,15 +81,27 @@ variable "kubernetes_version" {
 }
 
 variable "admin_cidrs" {
-  description = "CIDRs allowed to reach the public EKS API endpoint (admin workstation / local Jenkins egress IP)."
+  description = "Extra static CIDRs allowed to reach the public EKS API endpoint, on top of the auto-detected IP (see auto_detect_admin_ip)."
   type        = list(string)
+  default     = []
 
   validation {
-    condition = length(var.admin_cidrs) > 0 && alltrue([
+    condition = alltrue([
       for c in var.admin_cidrs : can(cidrhost(c, 0)) && c != "0.0.0.0/0"
     ])
-    error_message = "admin_cidrs must be a non-empty list of valid CIDRs and must not include 0.0.0.0/0."
+    error_message = "admin_cidrs must contain only valid CIDRs and must not include 0.0.0.0/0."
   }
+
+  validation {
+    condition     = length(var.admin_cidrs) > 0 || var.auto_detect_admin_ip
+    error_message = "Set admin_cidrs or enable auto_detect_admin_ip; the EKS public endpoint needs at least one allowed CIDR."
+  }
+}
+
+variable "auto_detect_admin_ip" {
+  description = "Add the public IP of the machine running Terraform (from https://checkip.amazonaws.com) as a /32 to the EKS API allowlist. Local Jenkins egresses from the same IP. scripts/sync-admin-ip.ps1 keeps it current between applies."
+  type        = bool
+  default     = true
 }
 
 variable "admin_principal_arn" {
