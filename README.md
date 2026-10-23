@@ -25,7 +25,6 @@ A static React portfolio taken from "works on GitHub Pages" to a reproducible, p
 - [Observability](#observability)
 - [Resilience evidence](#resilience-evidence)
 - [Cost and FinOps](#cost-and-finops)
-- [Design decisions and trade-offs](#design-decisions-and-trade-offs)
 - [Deploy and tear down](#deploy-and-tear-down)
 - [Repository layout](#repository-layout)
 - [Local development](#local-development)
@@ -213,20 +212,6 @@ us-east-1 on-demand list prices, 730 h/month (full breakdown in [section 5 of th
 - On demand instead of always on: ten 4-hour demo sessions a month cost about $14. A rebuild takes about 40 minutes.
 - Interface endpoints break even against NAT data processing at about 1,251 GB/month. This workload moves a few GB, so they are a security choice (private path to AWS APIs), and one variable turns them off.
 - One NAT Gateway instead of one per AZ saves $32.85/month at the cost of an egress single point of failure in AZ-a.
-
-## Design decisions and trade-offs
-
-| Decision | Alternative | Reasoning |
-|---|---|---|
-| EKS on managed nodes | ECS Fargate, S3 + CloudFront | The goal is to show Kubernetes operations; for a static site alone, S3 + CloudFront is cheaper and simpler |
-| Local Jenkins with polling | GitHub Actions + OIDC | Demonstrates Jenkins-as-code and role assumption; webhooks need a public endpoint |
-| Docker socket mounted into Jenkins | Kaniko, rootless BuildKit, ephemeral agents | Acceptable for a loopback-only demo; it is root on the host, so not for production |
-| Single NAT Gateway | NAT per AZ | Cost over egress HA; AWS API traffic bypasses NAT through endpoints anyway |
-| Preferred anti-affinity | Required anti-affinity | With 2 AZs, a required rule leaves replicas 3-5 Pending |
-| ACM certificate outside Terraform | Managed in `infra` | `terraform destroy` keeps it, so rebuilds need no new DNS validation |
-| S3 native locking (`use_lockfile`) | DynamoDB lock table | One fewer resource, supported since Terraform 1.10 |
-| Retain StorageClass | Delete | Logs survive accidental PVC deletion; teardown removes volumes explicitly |
-| No cluster autoscaler | Karpenter / CA | 5 replicas fit on 2 nodes; the next step if the HPA ceiling rises |
 
 ## Deploy and tear down
 
