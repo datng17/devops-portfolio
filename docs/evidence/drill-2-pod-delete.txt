@@ -1,0 +1,57 @@
+# Drill 2: delete a pod under the availability probe
+# Local time UTC+7. Probe started 20 s before the delete, stopped 30 s after rollout status reported healthy.
+
+--- 02:14:31
+NAME                         READY   STATUS    RESTARTS   AGE     IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-9nzt8   1/1     Running   0          22m     10.0.35.228   ip-10-0-39-145.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          9m22s   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+$ kubectl -n portfolio delete pod portfolio-574448488b-9nzt8 --wait=false   (02:14:37)
+pod "portfolio-574448488b-9nzt8" deleted from portfolio namespace
+--- 02:14:46
+NAME                         READY   STATUS        RESTARTS   AGE     IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running       0          9s      10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           0/1
+portfolio-574448488b-9nzt8   1/1     Terminating   0          22m     10.0.35.228   ip-10-0-39-145.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running       0          9m36s   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:14:55
+NAME                         READY   STATUS    RESTARTS   AGE     IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          18s     10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          9m45s   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:15:03
+NAME                         READY   STATUS    RESTARTS   AGE     IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          27s     10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          9m54s   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:15:12
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          36s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          10m   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:15:21
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          45s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          10m   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:15:30
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          54s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          10m   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:15:39
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          63s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          10m   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:15:48
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          72s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          10m   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:15:58
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          82s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          10m   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+--- 02:16:07
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+portfolio-574448488b-94jrx   1/1     Running   0          91s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          10m   10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+$ kubectl -n portfolio rollout status deployment/portfolio
+deployment "portfolio" successfully rolled out
+
+$ scripts/availability-probe.sh https://test.name.vn/ 0   (ran in background, stopped 30 s after recovery)
+::: availability-probe https://test.name.vn/: 130 requests in 152s
+    200: 130
+    non-200: 0

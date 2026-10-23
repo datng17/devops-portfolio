@@ -1,0 +1,70 @@
+# Drill 3 (run 1): cordon + drain the us-east-1b node under the availability probe
+# Local time UTC+7 (LBC log timestamps are UTC). Result: 3 x 000 (no HTTP response) between 02:20:14 and 02:20:28.
+
+$ kubectl get nodes -L topology.kubernetes.io/zone
+NAME                          STATUS   ROLES    AGE   VERSION               ZONE
+ip-10-0-25-123.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1a
+ip-10-0-39-145.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1b
+--- 02:19:50
+NAME                         READY   STATUS    RESTARTS   AGE     IP            NODE                          NOMINATED NODE   READINESS GATES
+log-sink-0                   1/1     Running   0          23h     10.0.26.243   ip-10-0-25-123.ec2.internal   <none>           <none>
+portfolio-574448488b-94jrx   1/1     Running   0          5m13s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-jh8l6   1/1     Running   0          14m     10.0.33.203   ip-10-0-39-145.ec2.internal   <none>           1/1
+$ kubectl cordon node/ip-10-0-39-145.ec2.internal   (02:19:52)
+node/ip-10-0-39-145.ec2.internal cordoned
+$ kubectl drain node/ip-10-0-39-145.ec2.internal --ignore-daemonsets --delete-emptydir-data --timeout=5m   (02:19:55)
+node/ip-10-0-39-145.ec2.internal already cordoned
+Warning: ignoring DaemonSet-managed Pods: kube-system/aws-node-vfqvp, kube-system/ebs-csi-node-x4vvh, kube-system/kube-proxy-vkbdx
+evicting pod kube-system/coredns-7c8b77c994-kzjkb
+evicting pod portfolio/portfolio-574448488b-jh8l6
+evicting pod kube-system/ebs-csi-controller-b78f775bc-fn8ms
+evicting pod kube-system/metrics-server-5d998d4d4c-77zkr
+evicting pod kube-system/aws-load-balancer-controller-789f8c77bd-fv9tz
+pod/aws-load-balancer-controller-789f8c77bd-fv9tz evicted
+pod/ebs-csi-controller-b78f775bc-fn8ms evicted
+pod/metrics-server-5d998d4d4c-77zkr evicted
+pod/coredns-7c8b77c994-kzjkb evicted
+pod/portfolio-574448488b-jh8l6 evicted
+node/ip-10-0-39-145.ec2.internal drained
+::: drain finished 02:20:12
+NAME                          STATUS                     ROLES    AGE   VERSION               ZONE
+ip-10-0-25-123.ec2.internal   Ready                      <none>   24h   v1.37.0-eks-b9510e3   us-east-1a
+ip-10-0-39-145.ec2.internal   Ready,SchedulingDisabled   <none>   24h   v1.37.0-eks-b9510e3   us-east-1b
+--- 02:20:15
+NAME                         READY   STATUS    RESTARTS   AGE     IP            NODE                          NOMINATED NODE   READINESS GATES
+log-sink-0                   1/1     Running   0          23h     10.0.26.243   ip-10-0-25-123.ec2.internal   <none>           <none>
+portfolio-574448488b-94jrx   1/1     Running   0          5m40s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-gfrlw   1/1     Running   0          19s     10.0.26.4     ip-10-0-25-123.ec2.internal   <none>           0/1
+$ kubectl -n kube-system get pods -o wide (non-DaemonSet, Pending check)
+No resources found in kube-system namespace.
+::: holding the degraded state (1 AZ) for 60 s
+--- 02:21:22
+NAME                         READY   STATUS    RESTARTS   AGE     IP            NODE                          NOMINATED NODE   READINESS GATES
+log-sink-0                   1/1     Running   0          23h     10.0.26.243   ip-10-0-25-123.ec2.internal   <none>           <none>
+portfolio-574448488b-94jrx   1/1     Running   0          6m45s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-574448488b-gfrlw   1/1     Running   0          84s     10.0.26.4     ip-10-0-25-123.ec2.internal   <none>           1/1
+$ kubectl uncordon node/ip-10-0-39-145.ec2.internal   (02:21:24)
+node/ip-10-0-39-145.ec2.internal uncordoned
+NAME                          STATUS   ROLES    AGE   VERSION               ZONE
+ip-10-0-25-123.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1a
+ip-10-0-39-145.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1b
+
+$ scripts/availability-probe.sh https://test.name.vn/ 0   (ran in background for the whole drill)
+02:20:14 non-200: 000
+02:20:22 non-200: 000
+02:20:28 non-200: 000
+::: availability-probe https://test.name.vn/: 113 requests in 144s
+    000: 3
+    200: 110
+    non-200: 3 (first 02:20:14, last 02:20:28)
+
+$ kubectl -n kube-system logs <new LBC leader> | leader/target-group events (UTC; 19:20 UTC = 02:20 local)
+2026-10-21T19:20:18Z Successfully acquired lease (aws-load-balancer-controller-leader)
+2026-10-21T19:20:18Z deRegistering targets 10.0.33.203/us-east-1b
+2026-10-21T19:20:19Z deRegistered targets 10.0.33.203/us-east-1b
+2026-10-21T19:20:19Z registering targets 10.0.26.4/us-east-1a
+2026-10-21T19:20:19Z registered targets 10.0.26.4/us-east-1a
+
+# Cause: the drain evicted the LBC leader (on the 1b node) together with portfolio-574448488b-jh8l6.
+# The standby LBC only acquired the lease at 19:20:18 UTC and deregistered 10.0.33.203 at 19:20:19 UTC,
+# after the pod's 10 s preStop sleep had ended, so the ALB sent requests to a stopped target for ~15 s.

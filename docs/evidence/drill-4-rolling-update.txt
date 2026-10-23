@@ -1,0 +1,54 @@
+# Drill 4: rolling update under load (Jenkins build #7, image 18cca64 -> 2f8d836)
+# Local time UTC+7. Probe: scripts/availability-probe.sh https://test.name.vn/ 1200, started 01:43:40, before git push
+
+$ scripts/availability-probe.sh https://test.name.vn/ 1200
+::: availability-probe https://test.name.vn/: 945 requests in 1201s
+    200: 945
+    non-200: 0
+
+$ kubectl -n portfolio get pods -o wide   (sampled every ~14 s; NAME READY STATUS NODE)
+--- 01:51:41
+portfolio-f9df4c59c-5fxz2 1/1 Running ip-10-0-25-123.ec2.internal 
+portfolio-f9df4c59c-5t2xg 1/1 Running ip-10-0-39-145.ec2.internal 
+--- 01:51:56
+portfolio-f9df4c59c-5fxz2 1/1 Running ip-10-0-25-123.ec2.internal 
+portfolio-f9df4c59c-5t2xg 1/1 Running ip-10-0-39-145.ec2.internal 
+--- 01:52:10
+portfolio-574448488b-9nzt8 1/1 Running ip-10-0-39-145.ec2.internal 
+portfolio-574448488b-z7xtr 0/1 ContainerCreating ip-10-0-25-123.ec2.internal 
+portfolio-f9df4c59c-5fxz2 1/1 Running ip-10-0-25-123.ec2.internal 
+portfolio-f9df4c59c-5t2xg 1/1 Terminating ip-10-0-39-145.ec2.internal 
+--- 01:52:24
+portfolio-574448488b-9nzt8 1/1 Running ip-10-0-39-145.ec2.internal 
+portfolio-574448488b-z7xtr 1/1 Running ip-10-0-25-123.ec2.internal 
+portfolio-f9df4c59c-5fxz2 1/1 Terminating ip-10-0-25-123.ec2.internal 
+--- 01:52:38
+portfolio-574448488b-9nzt8 1/1 Running ip-10-0-39-145.ec2.internal 
+portfolio-574448488b-z7xtr 1/1 Running ip-10-0-25-123.ec2.internal 
+--- 01:52:52
+
+### Jenkins build #7 (commit 2f8d836) - excerpt of console log
+Checking out Revision 2f8d836a435960359c6882cd5d5380c0f0649bd1 (refs/remotes/origin/main)
+[2026-10-21T18:45:19.001Z] Checking out Revision 2f8d836a435960359c6882cd5d5380c0f0649bd1 (refs/remotes/origin/main)
+[2026-10-21T18:47:32.693Z] Tests:       4 passed, 4 total
+[2026-10-21T18:51:31.883Z] 2f8d836: digest: sha256:0509b5b69d1dc0a11b052b0a8f5fd504b822b81e5e656766d6f11b3b76c9657a size: 2616
+[2026-10-21T18:51:50.334Z] Live revision before deploy: 7
+[2026-10-21T18:52:18.408Z] Waiting for deployment/portfolio (revision 8, image <account>.dkr.ecr.us-east-1.amazonaws.com/portfolio:2f8d836)
+[2026-10-21T18:52:22.594Z] Waiting for deployment "portfolio" rollout to finish: 1 old replicas are pending termination...
+[2026-10-21T18:52:23.950Z] Waiting for deployment "portfolio" rollout to finish: 1 old replicas are pending termination...
+[2026-10-21T18:52:24.201Z] Waiting for deployment "portfolio" rollout to finish: 1 old replicas are pending termination...
+[2026-10-21T18:52:24.202Z] deployment "portfolio" successfully rolled out
+[2026-10-21T18:52:36.374Z] Rollout complete: revision 8, image <account>.dkr.ecr.us-east-1.amazonaws.com/portfolio:2f8d836
+[2026-10-21T18:52:38.302Z] PASS: /healthz returned ok
+[2026-10-21T18:52:39.216Z] PASS: / returned index.html
+[2026-10-21T18:52:41.709Z] PASS: /static/js/main.c5c08c25.js served with immutable cache
+[2026-10-21T18:52:42.467Z] PASS: deep link fell back to index.html
+[2026-10-21T18:52:42.473Z] All smoke tests passed for https://test.name.vn
+Finished: SUCCESS
+
+# Run 2: Jenkins build #8 (commit ce64290, preStop 30 s / grace 45 s), image 2f8d836 -> ce64290
+# Probe started 02:31:20, git push 02:31:29, build SUCCESS 02:36:59 (224 s), pods 2/2 Ready with READINESS GATES 1/1
+$ scripts/availability-probe.sh https://test.name.vn/ 900
+::: availability-probe https://test.name.vn/: 766 requests in 900s
+    200: 766
+    non-200: 0

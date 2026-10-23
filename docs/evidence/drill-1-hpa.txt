@@ -1,0 +1,83 @@
+# Drill 1: HPA scale-out and scale-in (k6 in-cluster load, 40 VUs, ~5 min)
+# Local time UTC+7. Run on Git Bash. Parallel external probe against https://test.name.vn/ for the load window.
+
+$ scripts/hpa-load-test.sh
+::: HPA portfolio: min=2 max=5; baseline:
+NAME        REFERENCE              TARGETS                       MINPODS   MAXPODS   REPLICAS   AGE
+portfolio   Deployment/portfolio   cpu: 2%/60%, memory: 5%/75%   2         5         2          23h
+configmap/k6-load-script created
+job.batch/k6-load created
+::: Load running (about 5 minutes)
+02:05:09 t+  10s current=2 desired=2 ready=2 cpu=2% memory=5% | ip-10-0-25-123.ec2.internal:1 ip-10-0-39-145.ec2.internal:1 
+02:05:39 t+  41s current=4 desired=5 ready=4 cpu=313% memory=6% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:06:12 t+  71s current=5 desired=5 ready=5 cpu=203% memory=6% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:06:46 t+ 104s current=5 desired=5 ready=5 cpu=162% memory=6% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:07:15 t+ 137s current=5 desired=5 ready=5 cpu=173% memory=7% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:07:47 t+ 167s current=5 desired=5 ready=5 cpu=170% memory=6% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:08:24 t+ 199s current=5 desired=5 ready=5 cpu=172% memory=7% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:09:05 t+ 241s current=5 desired=5 ready=5 cpu=175% memory=7% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:09:44 t+ 277s current=5 desired=5 ready=5 cpu=174% memory=7% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:10:24 t+ 320s current=5 desired=5 ready=5 cpu=171% memory=6% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+::: k6 finished at t+340s (SuccessCriteriaMet Complete). Summary:
+
+
+  █ THRESHOLDS 
+
+    checks
+    ✓ 'rate>0.99' rate=100.00%
+
+    http_req_failed
+    ✓ 'rate<0.01' rate=0.00%
+
+
+  █ TOTAL RESULTS 
+
+    checks_total.......: 810468  2701.548077/s
+    checks_succeeded...: 100.00% 810468 out of 810468
+    checks_failed......: 0.00%   0 out of 810468
+
+    ✓ status is 200
+
+    HTTP
+    http_req_duration..............: avg=18.06ms med=11.48ms p(95)=56.35ms p(99)=68.89ms max=335.25ms
+      { expected_response:true }...: avg=18.06ms med=11.48ms p(95)=56.35ms p(99)=68.89ms max=335.25ms
+    http_req_failed................: 0.00%  0 out of 810468
+    http_reqs......................: 810468 2701.548077/s
+
+    EXECUTION
+    iteration_duration.............: avg=35.56ms med=29.32ms p(95)=75.66ms p(99)=89.75ms max=348.39ms
+    iterations.....................: 270156 900.516026/s
+    vus............................: 1      min=1           max=40
+    vus_max........................: 40     min=40          max=40
+
+    NETWORK
+    data_received..................: 765 MB 2.5 MB/s
+    data_sent......................: 96 MB  322 kB/s
+
+
+
+::: Waiting for scale-down to 2 (stabilization window applies)
+02:10:42 t+ 343s current=5 desired=5 ready=5 cpu=16% memory=6% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:11:11 t+ 371s current=5 desired=5 ready=5 cpu=2% memory=6% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:11:38 t+ 400s current=5 desired=5 ready=5 cpu=2% memory=5% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:12:06 t+ 427s current=5 desired=5 ready=5 cpu=2% memory=5% | ip-10-0-25-123.ec2.internal:3 ip-10-0-39-145.ec2.internal:2 
+02:12:32 t+ 455s current=5 desired=2 ready=2 cpu=2% memory=5% | ip-10-0-39-145.ec2.internal:2 
+02:12:59 t+ 481s current=2 desired=2 ready=2 cpu=2% memory=5% | ip-10-0-39-145.ec2.internal:2 
+::: Result: peak=5 replicas at t+71s, back to 2 at t+493s, k6=SuccessCriteriaMet Complete
+20m         Normal    ScalingReplicaSet         deployment/portfolio                Scaled down replica set portfolio-f9df4c59c from 2 to 1
+20m         Normal    ScalingReplicaSet         deployment/portfolio                Scaled up replica set portfolio-574448488b from 1 to 2
+20m         Normal    ScalingReplicaSet         deployment/portfolio                Scaled down replica set portfolio-f9df4c59c from 1 to 0
+20m         Warning   FailedGetResourceMetric   horizontalpodautoscaler/portfolio   failed to get cpu utilization: did not receive metrics for targeted pods (pods might be unready)
+7m49s       Normal    SuccessfulRescale         horizontalpodautoscaler/portfolio   New size: 4; reason: cpu resource utilization (percentage of request) above target
+7m49s       Normal    ScalingReplicaSet         deployment/portfolio                Scaled up replica set portfolio-574448488b from 2 to 4
+7m34s       Normal    SuccessfulRescale         horizontalpodautoscaler/portfolio   New size: 5; reason: cpu resource utilization (percentage of request) above target
+7m34s       Normal    ScalingReplicaSet         deployment/portfolio                Scaled up replica set portfolio-574448488b from 4 to 5
+48s         Normal    SuccessfulRescale         horizontalpodautoscaler/portfolio   New size: 2; reason: All metrics below target
+48s         Normal    ScalingReplicaSet         deployment/portfolio                Scaled down replica set portfolio-574448488b from 5 to 2
+::: Cleaning up k8s/tests/k6-load.yaml
+exit=0
+
+$ scripts/availability-probe.sh https://test.name.vn/ 330   (parallel, second terminal)
+::: availability-probe https://test.name.vn/: 257 requests in 331s
+    200: 257
+    non-200: 0

@@ -160,6 +160,45 @@
         "executionId": "56457360-8259-49bc-bc42-b15ad2ac5a40",
         "chatSessionId": "sess_477d0a5c-457a-41bf-b333-a0f53f73105a",
         "timestamp": 1792530560691
+      },
+      {
+        "executionId": "6216cb59-3c5a-4a06-8465-644d3b516c25",
+        "chatSessionId": "sess_33384b94-a56c-4e8e-9178-a6db34294cff",
+        "timestamp": 1792603622979
+      },
+      {
+        "executionId": "6216cb59-3c5a-4a06-8465-644d3b516c25",
+        "chatSessionId": "sess_33384b94-a56c-4e8e-9178-a6db34294cff",
+        "timestamp": 1792603896012
+      }
+    ],
+    "11. Task 11 - Resilience and HPA verification": [
+      {
+        "executionId": "dc39657d-61b7-438d-bb9a-befff97e6b54",
+        "chatSessionId": "sess_f1f8c28e-a658-4931-87a7-7e0ae520b660",
+        "timestamp": 1792604556884
+      },
+      {
+        "executionId": "afd2dc85-857e-4ce9-a14c-2939e6d742bf",
+        "chatSessionId": "sess_f1f8c28e-a658-4931-87a7-7e0ae520b660",
+        "timestamp": 1792605871187
+      },
+      {
+        "executionId": "afd2dc85-857e-4ce9-a14c-2939e6d742bf",
+        "chatSessionId": "sess_f1f8c28e-a658-4931-87a7-7e0ae520b660",
+        "timestamp": 1792612907319
+      }
+    ],
+    "12. Task 12 - Deployment guide, cost validation, teardown": [
+      {
+        "executionId": "e5f110f9-1239-439c-b6a9-ec39b9e768c2",
+        "chatSessionId": "sess_71d6af71-1b1e-45ee-bf17-97e1386939f2",
+        "timestamp": 1792644087710
+      },
+      {
+        "executionId": "e5f110f9-1239-439c-b6a9-ec39b9e768c2",
+        "chatSessionId": "sess_71d6af71-1b1e-45ee-bf17-97e1386939f2",
+        "timestamp": 1792653051406
       }
     ]
   }

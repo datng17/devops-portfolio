@@ -1,0 +1,58 @@
+# Drill 3 (run 2): cordon + drain the us-east-1b node, after preStop 10 s -> 30 s (commit ce64290)
+# Local time UTC+7. Both portfolio pods were on the 1b node, so the PDB serialised the evictions.
+# Note: the LBC leader was on the 1a node in this run (kube-system pods stayed in 1a after run 1).
+
+$ kubectl get nodes -L topology.kubernetes.io/zone
+NAME                          STATUS   ROLES    AGE   VERSION               ZONE
+ip-10-0-25-123.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1a
+ip-10-0-39-145.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1b
+--- 02:48:49
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+log-sink-0                   1/1     Running   0          24h   10.0.26.243   ip-10-0-25-123.ec2.internal   <none>           <none>
+portfolio-6bc85bcbbd-2949h   1/1     Running   0          12m   10.0.47.231   ip-10-0-39-145.ec2.internal   <none>           1/1
+portfolio-6bc85bcbbd-ff8nq   1/1     Running   0          12m   10.0.39.117   ip-10-0-39-145.ec2.internal   <none>           1/1
+$ kubectl cordon node/ip-10-0-39-145.ec2.internal   (02:48:51)
+node/ip-10-0-39-145.ec2.internal cordoned
+$ kubectl drain node/ip-10-0-39-145.ec2.internal --ignore-daemonsets --delete-emptydir-data --timeout=5m   (02:48:54)
+node/ip-10-0-39-145.ec2.internal already cordoned
+Warning: ignoring DaemonSet-managed Pods: kube-system/aws-node-vfqvp, kube-system/ebs-csi-node-x4vvh, kube-system/kube-proxy-vkbdx
+evicting pod portfolio/portfolio-6bc85bcbbd-ff8nq
+evicting pod portfolio/portfolio-6bc85bcbbd-2949h
+error when evicting pods/"portfolio-6bc85bcbbd-2949h" -n "portfolio" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod portfolio/portfolio-6bc85bcbbd-2949h
+error when evicting pods/"portfolio-6bc85bcbbd-2949h" -n "portfolio" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod portfolio/portfolio-6bc85bcbbd-2949h
+error when evicting pods/"portfolio-6bc85bcbbd-2949h" -n "portfolio" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod portfolio/portfolio-6bc85bcbbd-2949h
+error when evicting pods/"portfolio-6bc85bcbbd-2949h" -n "portfolio" (will retry after 5s): Cannot evict pod as it would violate the pod's disruption budget.
+evicting pod portfolio/portfolio-6bc85bcbbd-2949h
+pod/portfolio-6bc85bcbbd-ff8nq evicted
+pod/portfolio-6bc85bcbbd-2949h evicted
+node/ip-10-0-39-145.ec2.internal drained
+::: drain finished 02:49:53
+NAME                          STATUS                     ROLES    AGE   VERSION               ZONE
+ip-10-0-25-123.ec2.internal   Ready                      <none>   24h   v1.37.0-eks-b9510e3   us-east-1a
+ip-10-0-39-145.ec2.internal   Ready,SchedulingDisabled   <none>   24h   v1.37.0-eks-b9510e3   us-east-1b
+--- 02:49:55
+NAME                         READY   STATUS    RESTARTS   AGE   IP            NODE                          NOMINATED NODE   READINESS GATES
+log-sink-0                   1/1     Running   0          24h   10.0.26.243   ip-10-0-25-123.ec2.internal   <none>           <none>
+portfolio-6bc85bcbbd-mkn69   1/1     Running   0          58s   10.0.26.4     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-6bc85bcbbd-sq94s   1/1     Running   0          36s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+$ kubectl -n kube-system get pods -o wide (non-DaemonSet, Pending check)
+No resources found in kube-system namespace.
+::: holding the degraded state (1 AZ) for 60 s
+--- 02:51:00
+NAME                         READY   STATUS    RESTARTS   AGE    IP            NODE                          NOMINATED NODE   READINESS GATES
+log-sink-0                   1/1     Running   0          24h    10.0.26.243   ip-10-0-25-123.ec2.internal   <none>           <none>
+portfolio-6bc85bcbbd-mkn69   1/1     Running   0          2m3s   10.0.26.4     ip-10-0-25-123.ec2.internal   <none>           1/1
+portfolio-6bc85bcbbd-sq94s   1/1     Running   0          101s   10.0.26.7     ip-10-0-25-123.ec2.internal   <none>           1/1
+$ kubectl uncordon node/ip-10-0-39-145.ec2.internal   (02:51:02)
+node/ip-10-0-39-145.ec2.internal uncordoned
+NAME                          STATUS   ROLES    AGE   VERSION               ZONE
+ip-10-0-25-123.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1a
+ip-10-0-39-145.ec2.internal   Ready    <none>   24h   v1.37.0-eks-b9510e3   us-east-1b
+
+$ scripts/availability-probe.sh https://test.name.vn/ 0   (ran in background for the whole drill)
+::: availability-probe https://test.name.vn/: 164 requests in 183s
+    200: 164
+    non-200: 0
